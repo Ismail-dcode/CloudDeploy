@@ -32,7 +32,7 @@ async function detectProjectType(repoPath) {
     };
   }
 
-  // 2. Node.js / React+Vite check (package.json)
+  // 2. Node.js check (package.json)
   const hasPackageJson = files.includes('package.json');
   if (hasPackageJson) {
     let packageManager = 'npm';
@@ -42,38 +42,6 @@ async function detectProjectType(repoPath) {
       packageManager = 'pnpm';
     } else if (files.includes('package-lock.json')) {
       packageManager = 'npm';
-    }
-
-    let pkg = {};
-    try {
-      pkg = await fs.readJson(path.join(repoPath, 'package.json'));
-    } catch (err) {
-      console.warn('Could not parse package.json:', err.message);
-    }
-
-    const deps = pkg.dependencies || {};
-    const devDeps = pkg.devDependencies || {};
-    const scripts = pkg.scripts || {};
-
-    const hasReact = Boolean(deps.react || devDeps.react || deps['react-dom'] || devDeps['react-dom']);
-    const hasViteDep = Boolean(deps.vite || devDeps.vite || devDeps['@vitejs/plugin-react'] || devDeps['@vitejs/plugin-react-swc']);
-    const hasViteConfig = files.some(f => /^vite\.config\.(js|ts|mjs|cjs|mts|cts)$/i.test(f));
-    const hasViteScript = Object.values(scripts).some(s => typeof s === 'string' && s.toLowerCase().includes('vite'));
-
-    // Check if React + Vite project
-    if ((hasReact && (hasViteDep || hasViteConfig || hasViteScript)) || (hasViteDep && (hasViteConfig || hasViteScript))) {
-      return {
-        type: 'react-vite',
-        confidence: 'high',
-        details: {
-          framework: 'React',
-          bundler: 'Vite',
-          packageManager,
-          hasLockFile: files.includes('package-lock.json') || files.includes('yarn.lock') || files.includes('pnpm-lock.yaml'),
-          hasViteConfig,
-          buildScript: scripts.build ? 'npm run build' : 'npx vite build'
-        }
-      };
     }
 
     return {

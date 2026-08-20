@@ -41,9 +41,6 @@ export default function ResultCard({ result }) {
   const formatProjectType = (type) => {
     if (!type) return 'Unknown';
     switch (type.toLowerCase()) {
-      case 'react-vite':
-      case 'react':
-        return 'React + Vite';
       case 'node':
         return 'Node.js';
       case 'python':

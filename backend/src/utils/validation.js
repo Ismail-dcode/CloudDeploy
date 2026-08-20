@@ -32,8 +32,12 @@ function validateBuildInput(data) {
     }
   }
 
-  // 2. Validate command (Required ONLY when explicitly requested or checked after repo detection)
-  // For auto mode, command is optional at validation time and checked after repo detection if project is a Node.js server.
+  // 2. Validate command (Required ONLY when auto-generating Dockerfile for standard backend apps)
+  if (!isExistingDockerfileMode && !isStaticWebMode) {
+    if (!command || typeof command !== 'string' || command.trim() === '') {
+      errors.push('Run command is required when auto-generating a Dockerfile for application servers.');
+    }
+  }
 
   // 3. Validate App Port (internal container port)
   const targetAppPort = isStaticWebMode ? 80 : (appPort !== undefined ? appPort : (port !== undefined ? port : 80));

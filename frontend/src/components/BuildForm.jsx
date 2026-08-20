@@ -61,7 +61,10 @@ export default function BuildForm({ onSubmit, isLoading }) {
       newErrors.repoUrl = 'Please enter a valid GitHub repository URL (e.g. https://github.com/user/my-app)';
     }
 
-    // Run Command validation (Optional in 'auto' mode for React/Vite/Static sites, checked by backend for Node servers)
+    // Run Command validation (Only required in 'auto' mode)
+    if (buildMode === 'auto' && !formData.command.trim()) {
+      newErrors.command = 'Run command is required when auto-generating a Dockerfile for application servers.';
+    }
 
     // App Port validation (Only in 'auto' and 'existing' modes)
     if (buildMode !== 'static') {
@@ -170,7 +173,7 @@ export default function BuildForm({ onSubmit, isLoading }) {
           <div className="form-group">
             <label htmlFor="command" className="form-label">
               Run Command
-              <span className="label-hint">Required for backend servers. Optional for React/Vite</span>
+              <span className="label-hint">Execution command</span>
             </label>
             <input
               id="command"

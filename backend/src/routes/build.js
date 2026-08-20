@@ -88,24 +88,11 @@ router.post('/build', async (req, res) => {
       });
     }
 
-    // Require run command specifically for Node.js application servers
-    if (detectionResult.type === 'node' && (!command || command.trim() === '')) {
-      return res.status(400).json({
-        success: false,
-        message: 'Run command is required when auto-generating a Dockerfile for Node.js application servers.',
-        projectType: 'node'
-      });
-    }
-
-    // For React+Vite and static web apps, the container internal port is Nginx port 80
-    const isNginxApp = detectionResult.type === 'react-vite' || detectionResult.type === 'static';
-    const effectiveAppPort = isNginxApp ? 80 : targetAppPort;
-
     // STEP 6: Generate Dockerfile (if not existing)
     const dockerfileResult = await generateDockerfile({
       projectType: detectionResult.type,
       command,
-      port: effectiveAppPort,
+      port: targetAppPort,
       repoPath: tempDir,
       details: detectionResult.details
     });
@@ -126,10 +113,10 @@ router.post('/build', async (req, res) => {
       });
     }
 
-    // STEP 7.5: Run Docker Container locally mapping hostPort to effectiveAppPort (-p hostPort:effectiveAppPort)
+    // STEP 7.5: Run Docker Container locally mapping hostPort to appPort (-p hostPort:appPort)
     const containerResult = await runDockerContainer({
       imageName,
-      appPort: effectiveAppPort,
+      appPort: targetAppPort,
       hostPort: targetHostPort
     });
 
@@ -137,11 +124,11 @@ router.post('/build', async (req, res) => {
     return res.status(200).json({
       success: true,
       message: containerResult.success ? 'Docker image built and container launched successfully' : 'Docker image built successfully',
-      projectType: detectionResult.type === 'existing-dockerfile' ? 'Existing Dockerfile' : (detectionResult.type === 'react-vite' ? 'react-vite' : detectionResult.type),
+      projectType: detectionResult.type === 'existing-dockerfile' ? 'Existing Dockerfile' : detectionResult.type,
       imageName: buildResult.imageName,
       tag: buildResult.tag,
-      port: effectiveAppPort,
-      appPort: effectiveAppPort,
+      port: targetAppPort,
+      appPort: targetAppPort,
       hostPort: targetHostPort,
       localUrl: `http://localhost:${targetHostPort}`,
       containerRunning: containerResult.success,
