@@ -82,13 +82,28 @@ export default function ResultCard({ result }) {
             ❌ Build Failed
           </span>
         </div>
-        <div style={{ color: 'var(--status-error-text)', fontSize: '0.95rem', fontWeight: 500 }}>
+        <div style={{ color: 'var(--status-error-text)', fontSize: '0.95rem', fontWeight: 500, marginBottom: '1rem' }}>
           {message || 'Docker build failed.'}
         </div>
         {error && (
-          <div className="terminal-card">
+          <div className="terminal-card" style={{ marginBottom: '1rem' }}>
             <div className="terminal-header">Build Error Output</div>
             <div className="terminal-body error-text">{error}</div>
+          </div>
+        )}
+        {logs && (
+          <div className="terminal-card">
+            <div className="terminal-header">
+              <span>Full Docker Build Log</span>
+              <button
+                type="button"
+                className="copy-btn"
+                onClick={() => copyToClipboard(logs, 'logs')}
+              >
+                {copiedField === 'logs' ? '✓ Copied' : 'Copy Logs'}
+              </button>
+            </div>
+            <div className="terminal-body">{logs}</div>
           </div>
         )}
       </div>
@@ -103,13 +118,28 @@ export default function ResultCard({ result }) {
           <span className="status-badge status-success">
             ✅ Build Successful
           </span>
-          {containerRunning && (
+          {containerRunning ? (
             <span className="status-badge status-success" style={{ fontSize: '0.8rem', background: 'rgba(16, 185, 129, 0.15)' }}>
               🟢 Container Live ({containerId})
+            </span>
+          ) : (
+            <span className="status-badge status-unsupported" style={{ fontSize: '0.8rem', background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>
+              ⚠️ Container Not Running
             </span>
           )}
         </div>
       </div>
+
+      {!containerRunning && runError && (
+        <div className="terminal-card" style={{ marginBottom: '1rem', borderColor: 'rgba(245, 158, 11, 0.4)' }}>
+          <div className="terminal-header" style={{ color: '#f59e0b' }}>
+            <span>Container Launch Warning</span>
+          </div>
+          <div className="terminal-body" style={{ color: '#fbbf24', fontSize: '0.85rem' }}>
+            Image was built successfully, but container failed to start: {runError}
+          </div>
+        </div>
+      )}
 
       {/* Tabs Header */}
       <div className="tab-navigation">

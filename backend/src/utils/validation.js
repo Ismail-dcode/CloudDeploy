@@ -61,7 +61,7 @@ function validateBuildInput(data) {
   if (!imageName || typeof imageName !== 'string' || imageName.trim() === '') {
     errors.push('Docker image name is required.');
   } else {
-    const cleanImageName = imageName.trim();
+    const cleanImageName = imageName.trim().toLowerCase();
     const dockerImageRegex = /^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$/;
     if (!dockerImageRegex.test(cleanImageName)) {
       errors.push('Image name must contain only lowercase letters, numbers, hyphens, underscores, or periods (e.g., my-node-app).');

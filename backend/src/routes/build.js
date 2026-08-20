@@ -78,6 +78,12 @@ router.post('/build', async (req, res) => {
         confidence: 'high',
         details: { serverType: 'nginx', entryFile: 'static website' }
       };
+    } else if (validation.sanitized.useExistingDockerfile) {
+      detectionResult = {
+        type: 'existing-dockerfile',
+        confidence: 'high',
+        details: { message: 'Existing Dockerfile specified by user.' }
+      };
     }
 
     if (detectionResult.type === 'unsupported') {

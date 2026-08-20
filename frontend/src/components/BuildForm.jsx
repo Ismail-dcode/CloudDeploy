@@ -6,8 +6,8 @@ export default function BuildForm({ onSubmit, isLoading }) {
   const [formData, setFormData] = useState({
     repoUrl: '',
     command: '',
-    appPort: '3300',
-    hostPort: '3300',
+    appPort: '3000',
+    hostPort: '8080',
     imageName: ''
   });
 
@@ -85,8 +85,8 @@ export default function BuildForm({ onSubmit, isLoading }) {
     const dockerImageRegex = /^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$/;
     if (!imgTrimmed) {
       newErrors.imageName = 'Image name is required.';
-    } else if (!dockerImageRegex.test(imgTrimmed)) {
-      newErrors.imageName = 'Image name must be lowercase alphanumeric with hyphens/dots (e.g. my-node-app).';
+    } else if (!dockerImageRegex.test(imgTrimmed.toLowerCase())) {
+      newErrors.imageName = 'Image name must be alphanumeric with hyphens/dots (e.g. my-node-app).';
     }
 
     setErrors(newErrors);
@@ -121,6 +121,7 @@ export default function BuildForm({ onSubmit, isLoading }) {
           onClick={() => {
             setBuildMode('auto');
             setErrors({});
+            setFormData(prev => ({ ...prev, appPort: prev.appPort === '80' ? '3000' : prev.appPort }));
           }}
         >
           ⚡ Auto Backend / App
@@ -131,6 +132,7 @@ export default function BuildForm({ onSubmit, isLoading }) {
           onClick={() => {
             setBuildMode('static');
             setErrors({});
+            setFormData(prev => ({ ...prev, appPort: '80' }));
           }}
         >
           🌐 Static Website (Nginx)
@@ -141,6 +143,7 @@ export default function BuildForm({ onSubmit, isLoading }) {
           onClick={() => {
             setBuildMode('existing');
             setErrors({});
+            setFormData(prev => ({ ...prev, appPort: prev.appPort === '80' ? '3000' : prev.appPort }));
           }}
         >
           🐳 Existing Dockerfile
