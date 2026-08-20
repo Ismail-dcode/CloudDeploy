@@ -32,7 +32,7 @@ async function detectProjectType(repoPath) {
     };
   }
 
-  // 2. Node.js check (package.json)
+  // 2. Node.js / Frontend SPA check (package.json)
   const hasPackageJson = files.includes('package.json');
   if (hasPackageJson) {
     let packageManager = 'npm';
@@ -42,6 +42,54 @@ async function detectProjectType(repoPath) {
       packageManager = 'pnpm';
     } else if (files.includes('package-lock.json')) {
       packageManager = 'npm';
+    }
+
+    // Inspect package.json to identify React+Vite, CRA, Vue, Svelte SPAs vs Node backend servers
+    let isFrontendSpa = false;
+    let frameworkName = 'node';
+    const pkgPath = path.join(repoPath, 'package.json');
+
+    try {
+      if (await fs.pathExists(pkgPath)) {
+        const pkg = await fs.readJson(pkgPath);
+        const allDeps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
+        const scripts = pkg.scripts || {};
+
+        const hasVite = Boolean(allDeps.vite || (scripts.build && scripts.build.includes('vite')) || (scripts.dev && scripts.dev.includes('vite')));
+        const hasCra = Boolean(allDeps['react-scripts']);
+        const hasVue = Boolean(allDeps['@vue/cli-service'] || allDeps.vue);
+        const hasAstro = Boolean(allDeps.astro);
+        const hasSvelte = Boolean(allDeps['@sveltejs/kit'] || allDeps.svelte);
+
+        const hasBackendFramework = Boolean(
+          allDeps.express || allDeps.fastify || allDeps.koa || allDeps['@nestjs/core'] || allDeps.hono || allDeps.restify
+        );
+
+        if ((hasVite || hasCra || hasVue || hasAstro || hasSvelte) && !hasBackendFramework) {
+          isFrontendSpa = true;
+          if (hasVite) frameworkName = 'vite';
+          else if (hasCra) frameworkName = 'create-react-app';
+          else if (hasVue) frameworkName = 'vue';
+          else if (hasSvelte) frameworkName = 'svelte';
+          else if (hasAstro) frameworkName = 'astro';
+        }
+      }
+    } catch (err) {
+      // Ignore JSON parse errors and fallback to standard node detection
+    }
+
+    if (isFrontendSpa) {
+      return {
+        type: 'static',
+        confidence: 'high',
+        details: {
+          packageManager,
+          isFrontendSpa: true,
+          framework: frameworkName,
+          serverType: 'nginx',
+          entryFile: 'static SPA build'
+        }
+      };
     }
 
     return {
