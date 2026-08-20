@@ -39,70 +39,9 @@ async function generateDockerfile({ projectType, command, port, repoPath, detail
 
   switch (projectType) {
     case 'static': {
-      const hasPackageJson = await fs.pathExists(path.join(repoPath, 'package.json'));
-
-      // Always write a clean nginx.conf with SPA fallback into the repository
-      const nginxConfPath = path.join(repoPath, 'nginx.conf');
-      const nginxConfContent = `server {
-    listen 80;
-    server_name localhost;
-
-    location / {
-        root /usr/share/nginx/html;
-        index index.html index.htm;
-        try_files $uri $uri/ /index.html;
-    }
-
-    error_page 500 502 503 504 /50x.html;
-    location = /50x.html {
-        root /usr/share/nginx/html;
-    }
-}
-`;
-      await fs.writeFile(nginxConfPath, nginxConfContent, 'utf8');
-
-      if (hasPackageJson) {
-        // Multi-stage Nginx build for static sites with Node.js build tools (React, Vite, Vue, Tailwind, Next export, etc.)
-        dockerfileContent = `FROM node:22 AS builder
-
-WORKDIR /app
-
-ENV HOST=0.0.0.0
-
-COPY package*.json ./
-
-RUN npm install
-
-COPY . .
-
-RUN npm run build || true
-
-RUN mkdir -p /app/static_output && \\
-    if [ -d "dist" ]; then cp -r dist/* /app/static_output/ ; \\
-    elif [ -d "build" ]; then cp -r build/* /app/static_output/ ; \\
-    elif [ -d "out" ]; then cp -r out/* /app/static_output/ ; \\
-    elif [ -d "public" ] && [ -f "public/index.html" ]; then cp -r public/* /app/static_output/ ; \\
-    else cp -r ./* /app/static_output/ ; fi
-
-FROM nginx:alpine
+      dockerfileContent = `FROM nginx:alpine
 
 WORKDIR /usr/share/nginx/html
-
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-COPY --from=builder /app/static_output /usr/share/nginx/html
-
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
-`;
-      } else {
-        // Standard static HTML/CSS/JS site
-        dockerfileContent = `FROM nginx:alpine
-
-WORKDIR /usr/share/nginx/html
-
-COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 COPY . /usr/share/nginx/html
 
@@ -110,7 +49,6 @@ EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]
 `;
-      }
       break;
     }
 
@@ -127,22 +65,6 @@ CMD ["nginx", "-g", "daemon off;"]
         installCmd = 'RUN corepack enable && pnpm install';
       }
 
-      // Check if package.json has a build script
-      let hasBuildScript = false;
-      const pkgPath = path.join(repoPath, 'package.json');
-      if (await fs.pathExists(pkgPath)) {
-        try {
-          const pkg = await fs.readJson(pkgPath);
-          if (pkg && pkg.scripts && pkg.scripts.build) {
-            hasBuildScript = true;
-          }
-        } catch (e) {
-          // ignore parse errors
-        }
-      }
-
-      const buildStep = hasBuildScript ? `RUN ${pm} run build || true\n\n` : '';
-
       dockerfileContent = `FROM node:22
 
 WORKDIR /app
@@ -156,7 +78,7 @@ ${installCmd}
 
 COPY . .
 
-${buildStep}EXPOSE ${port}
+EXPOSE ${port}
 
 ${cmdDirective}
 `;
@@ -173,10 +95,6 @@ ${cmdDirective}
 
 WORKDIR /app
 
-ENV HOST=0.0.0.0
-ENV PORT=${port}
-ENV PYTHONUNBUFFERED=1
-
 COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
@@ -192,10 +110,6 @@ ${cmdDirective}
 
 WORKDIR /app
 
-ENV HOST=0.0.0.0
-ENV PORT=${port}
-ENV PYTHONUNBUFFERED=1
-
 COPY . .
 
 RUN pip install --no-cache-dir .
@@ -209,10 +123,6 @@ ${cmdDirective}
         dockerfileContent = `FROM python:3.12
 
 WORKDIR /app
-
-ENV HOST=0.0.0.0
-ENV PORT=${port}
-ENV PYTHONUNBUFFERED=1
 
 COPY . .
 
@@ -231,13 +141,13 @@ WORKDIR /app
 
 COPY go.mod ./
 COPY go.sum* ./
-RUN go mod download || true
+RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 go build -o app .
+RUN go build -o app .
 
-FROM alpine:latest
+FROM debian:bookworm-slim
 
 WORKDIR /app
 
