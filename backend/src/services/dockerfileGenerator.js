@@ -22,15 +22,28 @@ async function generateDockerfile({ projectType, command, port, repoPath, detail
   }
 
   if (projectType === 'existing-dockerfile') {
-    const existingPath = path.join(repoPath, 'Dockerfile');
+    const files = await fs.readdir(repoPath);
+    // Case-insensitive search for Dockerfile or dockerfile.*
+    const existingFileName = files.find(f => f.toLowerCase() === 'dockerfile' || f.toLowerCase().startsWith('dockerfile.'));
     let content = '';
-    if (await fs.pathExists(existingPath)) {
-      content = await fs.readFile(existingPath, 'utf8');
+
+    if (existingFileName && (await fs.pathExists(path.join(repoPath, existingFileName)))) {
+      content = await fs.readFile(path.join(repoPath, existingFileName), 'utf8');
+      
+      // Ensure standard Dockerfile exists for Docker build daemon
+      if (existingFileName !== 'Dockerfile') {
+        await fs.writeFile(path.join(repoPath, 'Dockerfile'), content, 'utf8');
+      }
     }
+
+    if (!content || !content.trim()) {
+      throw new Error("No Dockerfile was found in the repository root directory. Please ensure a file named 'Dockerfile' exists in your repository root, or switch to Auto Backend mode.");
+    }
+
     return {
       generated: false,
       dockerfileContent: content,
-      message: 'Existing Dockerfile detected.'
+      message: 'Existing Dockerfile detected and validated.'
     };
   }
 
@@ -150,6 +163,16 @@ CMD ["nginx", "-g", "daemon off;"]
           nodeCmd = 'node server.js';
         } else if (await fs.pathExists(path.join(repoPath, 'app.js'))) {
           nodeCmd = 'node app.js';
+        } else if (await fs.pathExists(path.join(repoPath, 'server', 'main.js'))) {
+          nodeCmd = 'node server/main.js';
+        } else if (await fs.pathExists(path.join(repoPath, 'server', 'index.js'))) {
+          nodeCmd = 'node server/index.js';
+        } else if (await fs.pathExists(path.join(repoPath, 'server', 'server.js'))) {
+          nodeCmd = 'node server/server.js';
+        } else if (await fs.pathExists(path.join(repoPath, 'src', 'index.js'))) {
+          nodeCmd = 'node src/index.js';
+        } else if (await fs.pathExists(path.join(repoPath, 'src', 'server.js'))) {
+          nodeCmd = 'node src/server.js';
         } else {
           nodeCmd = 'npm start';
         }

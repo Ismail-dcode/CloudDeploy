@@ -281,6 +281,8 @@ export default function BuildForm({ onSubmit, isLoading }) {
               </span>
             )}
           </div>
+        )}
+
         {/* Environment Variables Input Section */}
         <div className="form-group" style={{ marginTop: '0.5rem' }}>
           <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
