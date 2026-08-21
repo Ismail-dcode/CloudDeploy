@@ -90,10 +90,30 @@ export default function BuildForm({ onSubmit, isLoading }) {
     return Object.keys(newErrors).length === 0;
   };
 
+  const [envPairs, setEnvPairs] = useState([{ key: '', value: '' }]);
+
+  const addEnvPair = () => setEnvPairs(prev => [...prev, { key: '', value: '' }]);
+  const removeEnvPair = (idx) => setEnvPairs(prev => prev.filter((_, i) => i !== idx));
+  const handleEnvChange = (idx, field, val) => {
+    setEnvPairs(prev => {
+      const updated = [...prev];
+      updated[idx] = { ...updated[idx], [field]: val };
+      return updated;
+    });
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (validate()) {
       const targetAppPort = buildMode === 'static' ? 80 : Number(formData.appPort);
+      
+      const envVarsObj = {};
+      envPairs.forEach(pair => {
+        if (pair.key && pair.key.trim()) {
+          envVarsObj[pair.key.trim()] = pair.value ? pair.value.trim() : '';
+        }
+      });
+
       onSubmit({
         repoUrl: formData.repoUrl.trim(),
         command: buildMode === 'auto' ? formData.command.trim() : '',
@@ -103,7 +123,8 @@ export default function BuildForm({ onSubmit, isLoading }) {
         imageName: formData.imageName.trim().toLowerCase(),
         buildMode,
         isStaticMode: buildMode === 'static',
-        useExistingDockerfile: buildMode === 'existing'
+        useExistingDockerfile: buildMode === 'existing',
+        envVars: envVarsObj
       });
     }
   };
@@ -260,7 +281,51 @@ export default function BuildForm({ onSubmit, isLoading }) {
               </span>
             )}
           </div>
-        )}
+        {/* Environment Variables Input Section */}
+        <div className="form-group" style={{ marginTop: '0.5rem' }}>
+          <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>🔐 Environment Variables (Optional)</span>
+            <button
+              type="button"
+              className="copy-btn"
+              onClick={addEnvPair}
+              style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+            >
+              + Add Variable
+            </button>
+          </label>
+          {envPairs.map((pair, idx) => (
+            <div key={idx} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="KEY (e.g. DATABASE_URL)"
+                value={pair.key}
+                onChange={(e) => handleEnvChange(idx, 'key', e.target.value)}
+                disabled={isLoading}
+                style={{ flex: 1 }}
+              />
+              <input
+                type="text"
+                className="form-input"
+                placeholder="VALUE"
+                value={pair.value}
+                onChange={(e) => handleEnvChange(idx, 'value', e.target.value)}
+                disabled={isLoading}
+                style={{ flex: 1 }}
+              />
+              {envPairs.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeEnvPair(idx)}
+                  style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: 'none', borderRadius: '4px', padding: '0 0.6rem', cursor: 'pointer' }}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
 
         {/* Field 4: Image Name */}
         <div className="form-group">

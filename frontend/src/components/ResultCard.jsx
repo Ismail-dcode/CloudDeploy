@@ -9,6 +9,7 @@ export default function ResultCard({ result }) {
   const {
     success,
     projectType,
+    details = {},
     imageName,
     tag,
     port,
@@ -19,6 +20,8 @@ export default function ResultCard({ result }) {
     containerId,
     runCommand,
     runError,
+    reachability,
+    envVarsInjected = [],
     message,
     error,
     logs,
@@ -38,8 +41,11 @@ export default function ResultCard({ result }) {
   };
 
   // Format display project type
-  const formatProjectType = (type) => {
+  const formatProjectType = (type, details = {}) => {
     if (!type) return 'Unknown';
+    if (details && details.framework && details.framework !== 'generic' && details.framework !== 'node') {
+      return `${type.toUpperCase()} (${details.framework.toUpperCase()})`;
+    }
     switch (type.toLowerCase()) {
       case 'node':
         return 'Node.js';
@@ -176,8 +182,17 @@ export default function ResultCard({ result }) {
           <div className="result-grid">
             <div className="result-item">
               <div className="result-item-label">Detected Technology</div>
-              <div className="result-item-value">{formatProjectType(projectType)}</div>
+              <div className="result-item-value">{formatProjectType(projectType, details)}</div>
             </div>
+
+            {details.framework && (
+              <div className="result-item">
+                <div className="result-item-label">Framework / Entrypoint</div>
+                <div className="result-item-value" style={{ textTransform: 'capitalize' }}>
+                  {details.framework} {details.entryPoint ? `(${details.entryPoint})` : ''}
+                </div>
+              </div>
+            )}
 
             <div className="result-item">
               <div className="result-item-label">Docker Image Tag</div>
@@ -211,6 +226,15 @@ export default function ResultCard({ result }) {
               <div className="result-item-label">Port Binding (-p)</div>
               <div className="result-item-value">{targetHostPort}:{targetAppPort}</div>
             </div>
+
+            {reachability && (
+              <div className="result-item">
+                <div className="result-item-label">Host Reachability Verification</div>
+                <div className="result-item-value" style={{ color: reachability.reachable ? '#10b981' : '#f59e0b', fontSize: '0.85rem' }}>
+                  {reachability.reachable ? '🟢 Verified Reachable' : '⚠️ Unreachable / Non-HTTP'}
+                </div>
+              </div>
+            )}
           </div>
 
           {defaultRunCommand && (

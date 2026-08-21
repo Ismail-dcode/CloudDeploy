@@ -189,67 +189,85 @@ ${nodeCmdDirective}
     }
 
     case 'python': {
-      const hasRequirements = await fs.pathExists(path.join(repoPath, 'requirements.txt'));
-      const hasPyproject = await fs.pathExists(path.join(repoPath, 'pyproject.toml'));
-      const hasSetupPy = await fs.pathExists(path.join(repoPath, 'setup.py'));
+      const pyVer = details.pythonVersion || '3.12';
+      const framework = details.framework || 'generic';
+      const entryPoint = details.entryPoint || 'app.py';
+      const appObject = details.appObject || 'app';
+      const depManager = details.dependencyManager || 'pip';
+      const category = details.category || 'web';
 
-      // Determine smart runtime CMD for Python application
+      const entryModule = entryPoint.replace(/\.py$/, '').replace(/\//g, '.');
+
+      // 1. Dependency Installation Steps
+      let installStep = '';
+      if (depManager === 'poetry') {
+        installStep = `COPY pyproject.toml poetry.lock* ./
+RUN pip install --no-cache-dir poetry && poetry config virtualenvs.create false && poetry install --no-interaction --no-ansi --no-root`;
+      } else if (depManager === 'pipenv') {
+        installStep = `COPY Pipfile Pipfile.lock* ./
+RUN pip install --no-cache-dir pipenv && pipenv install --system --deploy`;
+      } else if (await fs.pathExists(path.join(repoPath, 'requirements.txt'))) {
+        installStep = `COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt`;
+      } else if (await fs.pathExists(path.join(repoPath, 'setup.py'))) {
+        installStep = `COPY setup.py .
+RUN pip install --no-cache-dir .`;
+      }
+
+      // 2. Framework-Specific Runtime Commands & Environment
       let pyCmd = command;
+      let extraEnv = '';
+      let preRunStep = '';
+
       if (!pyCmd) {
-        if (await fs.pathExists(path.join(repoPath, 'app.py'))) {
-          pyCmd = 'python app.py';
-        } else if (await fs.pathExists(path.join(repoPath, 'main.py'))) {
-          pyCmd = 'python main.py';
-        } else if (await fs.pathExists(path.join(repoPath, 'server.py'))) {
-          pyCmd = 'python server.py';
+        if (framework === 'django') {
+          // Find Django WSGI module
+          let djangoWsgi = 'project.wsgi';
+          try {
+            const files = await fs.readdir(repoPath);
+            for (const f of files) {
+              if (await fs.pathExists(path.join(repoPath, f, 'wsgi.py'))) {
+                djangoWsgi = `${f}.wsgi`;
+                break;
+              }
+            }
+          } catch (e) {}
+          preRunStep = 'RUN python manage.py collectstatic --noinput || true\n';
+          pyCmd = `gunicorn --bind 0.0.0.0:${port} ${djangoWsgi}:application`;
+        } else if (framework === 'fastapi') {
+          pyCmd = `uvicorn ${entryModule}:${appObject} --host 0.0.0.0 --port ${port}`;
+        } else if (framework === 'streamlit') {
+          pyCmd = `streamlit run ${entryPoint} --server.address 0.0.0.0 --server.port ${port}`;
+        } else if (framework === 'gradio') {
+          extraEnv = `ENV GRADIO_SERVER_NAME=0.0.0.0\nENV GRADIO_SERVER_PORT=${port}\n`;
+          pyCmd = `python ${entryPoint}`;
+        } else if (framework === 'flask') {
+          pyCmd = `gunicorn --bind 0.0.0.0:${port} ${entryModule}:${appObject}`;
+        } else if (framework === 'celery') {
+          pyCmd = `celery -A ${entryModule} worker --loglevel=info`;
         } else {
-          pyCmd = 'python app.py';
+          pyCmd = `python ${entryPoint}`;
         }
       }
 
       const pyCmdDirective = formatDockerCmd(pyCmd);
+      const exposeDirective = category === 'web' ? `EXPOSE ${port}\n` : '';
 
-      if (hasRequirements) {
-        dockerfileContent = `FROM python:3.12
-
-WORKDIR /app
-
-COPY requirements.txt .
-
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY . .
-
-EXPOSE ${port}
-
-${pyCmdDirective}
-`;
-      } else if (hasPyproject || hasSetupPy) {
-        dockerfileContent = `FROM python:3.12
+      dockerfileContent = `FROM python:${pyVer}
 
 WORKDIR /app
 
-COPY . .
-
-RUN pip install --no-cache-dir .
-
-EXPOSE ${port}
-
-${pyCmdDirective}
-`;
-      } else {
-        // Standard Python application without external dependency file (e.g. server.py, app.py)
-        dockerfileContent = `FROM python:3.12
-
-WORKDIR /app
+ENV PYTHONUNBUFFERED=1
+ENV HOST=0.0.0.0
+ENV PORT=${port}
+${extraEnv}
+${installStep}
 
 COPY . .
 
-EXPOSE ${port}
-
+${preRunStep}${exposeDirective}
 ${pyCmdDirective}
 `;
-      }
       break;
     }
 

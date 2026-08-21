@@ -17,9 +17,19 @@ function validateBuildInput(data) {
     return { isValid: false, errors: ['Request body must be a JSON object'] };
   }
 
-  const { repoUrl, command, port, appPort, hostPort, imageName, hasExistingDockerfile, useExistingDockerfile, buildMode, isStaticMode } = data;
+  const { repoUrl, command, port, appPort, hostPort, imageName, hasExistingDockerfile, useExistingDockerfile, buildMode, isStaticMode, envVars } = data;
   const isExistingDockerfileMode = Boolean(hasExistingDockerfile || useExistingDockerfile || buildMode === 'existing-dockerfile');
   const isStaticWebMode = Boolean(isStaticMode || buildMode === 'static');
+
+  // Sanitize environment variables object
+  const sanitizedEnvVars = {};
+  if (envVars && typeof envVars === 'object') {
+    for (const [k, v] of Object.entries(envVars)) {
+      if (k && typeof k === 'string' && k.trim()) {
+        sanitizedEnvVars[k.trim()] = (v !== undefined && v !== null) ? String(v).trim() : '';
+      }
+    }
+  }
 
   // 1. Validate repoUrl
   if (!repoUrl || typeof repoUrl !== 'string' || repoUrl.trim() === '') {
@@ -76,7 +86,8 @@ function validateBuildInput(data) {
       imageName: imageName.trim().toLowerCase(),
       useExistingDockerfile: isExistingDockerfileMode,
       isStaticMode: isStaticWebMode,
-      buildMode: isStaticWebMode ? 'static' : (isExistingDockerfileMode ? 'existing-dockerfile' : 'auto')
+      buildMode: isStaticWebMode ? 'static' : (isExistingDockerfileMode ? 'existing-dockerfile' : 'auto'),
+      envVars: sanitizedEnvVars
     } : null
   };
 }

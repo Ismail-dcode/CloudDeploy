@@ -1,5 +1,6 @@
 const fs = require('fs-extra');
 const path = require('path');
+const { detectPythonProject } = require('./pythonDetector');
 
 /**
  * Inspects repository files and detects the project type based on priority:
@@ -109,25 +110,12 @@ async function detectProjectType(repoPath) {
   const hasSetupPy = files.includes('setup.py');
   const hasPythonFiles = files.some(f => f.endsWith('.py'));
 
-  if (hasRequirementsTxt) {
+  if (hasRequirementsTxt || hasPyprojectToml || hasPipfile || hasSetupPy || hasPythonFiles) {
+    const pythonDetails = await detectPythonProject(repoPath);
     return {
       type: 'python',
-      confidence: 'high',
-      details: {
-        dependencyFile: 'requirements.txt'
-      }
-    };
-  }
-
-  if (hasPyprojectToml || hasPipfile || hasSetupPy || hasPythonFiles) {
-    return {
-      type: 'python',
-      confidence: (hasPyprojectToml || hasPipfile) ? 'high' : 'medium',
-      details: {
-        dependencyFile: hasPyprojectToml ? 'pyproject.toml' : (hasPipfile ? 'Pipfile' : 'none'),
-        hasSetupPy,
-        hasPythonFiles
-      }
+      confidence: (hasRequirementsTxt || hasPyprojectToml || hasPipfile) ? 'high' : 'medium',
+      details: pythonDetails
     };
   }
 

@@ -5,7 +5,7 @@ const { validateBuildInput } = require('../utils/validation');
 const { createTempDirectory, cloneRepository, cleanupDirectory } = require('../services/gitService');
 const { detectProjectType } = require('../services/projectDetector');
 const { generateDockerfile } = require('../services/dockerfileGenerator');
-const { buildDockerImage, runDockerContainer } = require('../services/dockerService');
+const { buildDockerImage, runDockerContainer, verifyContainerReachability } = require('../services/dockerService');
 
 /**
  * GET /api/check-port/:port
@@ -119,28 +119,40 @@ router.post('/build', async (req, res) => {
       });
     }
 
-    // STEP 7.5: Run Docker Container locally mapping hostPort to appPort (-p hostPort:appPort)
+    // STEP 7.5: Run Docker Container locally mapping hostPort to appPort (-p hostPort:appPort) with envVars
+    const isWeb = detectionResult.details ? (detectionResult.details.category !== 'worker' && detectionResult.details.category !== 'cli') : true;
     const containerResult = await runDockerContainer({
       imageName,
       appPort: targetAppPort,
-      hostPort: targetHostPort
+      hostPort: targetHostPort,
+      envVars: validation.sanitized.envVars || {},
+      isWeb
     });
+
+    // STEP 7.6: Verify Container Reachability if Web application
+    let reachabilityStatus = { reachable: true, message: 'Non-web process / container running' };
+    if (containerResult.success && isWeb) {
+      reachabilityStatus = await verifyContainerReachability(targetHostPort);
+    }
 
     // STEP 8: Return Success Result
     return res.status(200).json({
       success: true,
       message: containerResult.success ? 'Docker image built and container launched successfully' : 'Docker image built successfully',
       projectType: detectionResult.type === 'existing-dockerfile' ? 'Existing Dockerfile' : detectionResult.type,
+      details: detectionResult.details || {},
       imageName: buildResult.imageName,
       tag: buildResult.tag,
       port: targetAppPort,
       appPort: targetAppPort,
       hostPort: targetHostPort,
-      localUrl: `http://localhost:${targetHostPort}`,
+      localUrl: isWeb ? `http://localhost:${targetHostPort}` : null,
       containerRunning: containerResult.success,
       containerId: containerResult.containerId,
       runCommand: containerResult.runCommand,
       runError: containerResult.error,
+      reachability: reachabilityStatus,
+      envVarsInjected: Object.keys(validation.sanitized.envVars || {}),
       dockerfileGenerated: dockerfileResult.generated,
       dockerfileContent: dockerfileResult.dockerfileContent,
       logs: buildResult.output
