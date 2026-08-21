@@ -105,24 +105,43 @@ CMD ["nginx", "-g", "daemon off;"]
         installCmd = 'RUN corepack enable && pnpm install';
       }
 
-      // Determine smart runtime CMD for Node application
-      let nodeCmd = command;
-      if (!nodeCmd) {
-        const pkgPath = path.join(repoPath, 'package.json');
-        let pkgScripts = {};
-        let pkgMain = '';
-        try {
-          if (await fs.pathExists(pkgPath)) {
-            const pkg = await fs.readJson(pkgPath);
-            pkgScripts = pkg.scripts || {};
-            pkgMain = pkg.main || '';
-          }
-        } catch (err) {}
+      // Read package.json details
+      const pkgPath = path.join(repoPath, 'package.json');
+      let pkgScripts = {};
+      let pkgMain = '';
+      try {
+        if (await fs.pathExists(pkgPath)) {
+          const pkg = await fs.readJson(pkgPath);
+          pkgScripts = pkg.scripts || {};
+          pkgMain = pkg.main || '';
+        }
+      } catch (err) {}
 
+      const isViteApp = Boolean(
+        details.isFrontendSpa ||
+        (pkgScripts.dev && pkgScripts.dev.includes('vite')) ||
+        (pkgScripts.start && pkgScripts.start.includes('vite')) ||
+        (command && command.includes('vite'))
+      );
+
+      // Determine smart runtime CMD for Node / Vite application
+      let nodeCmd = command;
+
+      if (!nodeCmd) {
         if (pkgScripts.start) {
-          nodeCmd = pm === 'yarn' ? 'yarn start' : (pm === 'pnpm' ? 'pnpm start' : 'npm start');
+          const startIsVite = pkgScripts.start.includes('vite');
+          if (startIsVite) {
+            nodeCmd = pm === 'yarn' ? `yarn start --host 0.0.0.0 --port ${port}` : (pm === 'pnpm' ? `pnpm start -- --host 0.0.0.0 --port ${port}` : `npm start -- --host 0.0.0.0 --port ${port}`);
+          } else {
+            nodeCmd = pm === 'yarn' ? 'yarn start' : (pm === 'pnpm' ? 'pnpm start' : 'npm start');
+          }
         } else if (pkgScripts.dev) {
-          nodeCmd = pm === 'yarn' ? 'yarn dev' : (pm === 'pnpm' ? 'pnpm dev' : 'npm run dev');
+          const devIsVite = pkgScripts.dev.includes('vite') || isViteApp;
+          if (devIsVite) {
+            nodeCmd = pm === 'yarn' ? `yarn dev --host 0.0.0.0 --port ${port}` : (pm === 'pnpm' ? `pnpm run dev -- --host 0.0.0.0 --port ${port}` : `npm run dev -- --host 0.0.0.0 --port ${port}`);
+          } else {
+            nodeCmd = pm === 'yarn' ? 'yarn dev' : (pm === 'pnpm' ? 'pnpm dev' : 'npm run dev');
+          }
         } else if (pkgMain && await fs.pathExists(path.join(repoPath, pkgMain))) {
           nodeCmd = `node ${pkgMain}`;
         } else if (await fs.pathExists(path.join(repoPath, 'index.js'))) {
@@ -133,6 +152,17 @@ CMD ["nginx", "-g", "daemon off;"]
           nodeCmd = 'node app.js';
         } else {
           nodeCmd = 'npm start';
+        }
+      } else if (isViteApp && !nodeCmd.includes('--host')) {
+        // If user entered command like "npm run dev", ensure host 0.0.0.0 and port are passed to Vite for Docker container accessibility
+        if (nodeCmd === 'npm run dev' || nodeCmd === 'npm dev') {
+          nodeCmd = `npm run dev -- --host 0.0.0.0 --port ${port}`;
+        } else if (nodeCmd.includes('npm run') || nodeCmd.includes('npm start')) {
+          nodeCmd = `${nodeCmd} -- --host 0.0.0.0 --port ${port}`;
+        } else if (nodeCmd.includes('yarn')) {
+          nodeCmd = `${nodeCmd} --host 0.0.0.0 --port ${port}`;
+        } else if (nodeCmd.includes('pnpm')) {
+          nodeCmd = `${nodeCmd} -- --host 0.0.0.0 --port ${port}`;
         }
       }
 

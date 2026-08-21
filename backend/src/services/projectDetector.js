@@ -78,25 +78,13 @@ async function detectProjectType(repoPath) {
       // Ignore JSON parse errors and fallback to standard node detection
     }
 
-    if (isFrontendSpa) {
-      return {
-        type: 'static',
-        confidence: 'high',
-        details: {
-          packageManager,
-          isFrontendSpa: true,
-          framework: frameworkName,
-          serverType: 'nginx',
-          entryFile: 'static SPA build'
-        }
-      };
-    }
-
     return {
       type: 'node',
       confidence: 'high',
       details: {
         packageManager,
+        isFrontendSpa,
+        framework: isFrontendSpa ? frameworkName : 'node',
         hasLockFile: files.includes('package-lock.json') || files.includes('yarn.lock') || files.includes('pnpm-lock.yaml')
       }
     };
