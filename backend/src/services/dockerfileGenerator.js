@@ -34,12 +34,51 @@ async function generateDockerfile({ projectType, command, port, repoPath, detail
     };
   }
 
-  const cmdDirective = command ? formatDockerCmd(command) : 'CMD ["nginx", "-g", "daemon off;"]';
   let dockerfileContent = '';
 
   switch (projectType) {
     case 'static': {
-      dockerfileContent = `FROM nginx:alpine
+      const hasPkg = await fs.pathExists(path.join(repoPath, 'package.json'));
+      if (hasPkg) {
+        // Multi-stage build for Node frontend SPA (Vite, React, Vue, Svelte, etc.)
+        const pm = details.packageManager || 'npm';
+        let installCmd = 'RUN npm install';
+        let copyLockCmd = 'COPY package*.json ./';
+        let buildCmd = 'RUN npm run build';
+
+        if (pm === 'yarn') {
+          copyLockCmd = 'COPY package.json yarn.lock* ./';
+          installCmd = 'RUN yarn install';
+          buildCmd = 'RUN yarn build';
+        } else if (pm === 'pnpm') {
+          copyLockCmd = 'COPY package.json pnpm-lock.yaml* ./';
+          installCmd = 'RUN corepack enable && pnpm install';
+          buildCmd = 'RUN pnpm run build';
+        }
+
+        dockerfileContent = `FROM node:22 AS builder
+
+WORKDIR /app
+
+${copyLockCmd}
+
+${installCmd}
+
+COPY . .
+
+${buildCmd}
+
+FROM nginx:alpine
+
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
+`;
+      } else {
+        // Pure static HTML/CSS/JS website
+        dockerfileContent = `FROM nginx:alpine
 
 WORKDIR /usr/share/nginx/html
 
@@ -49,6 +88,7 @@ EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]
 `;
+      }
       break;
     }
 
@@ -65,6 +105,39 @@ CMD ["nginx", "-g", "daemon off;"]
         installCmd = 'RUN corepack enable && pnpm install';
       }
 
+      // Determine smart runtime CMD for Node application
+      let nodeCmd = command;
+      if (!nodeCmd) {
+        const pkgPath = path.join(repoPath, 'package.json');
+        let pkgScripts = {};
+        let pkgMain = '';
+        try {
+          if (await fs.pathExists(pkgPath)) {
+            const pkg = await fs.readJson(pkgPath);
+            pkgScripts = pkg.scripts || {};
+            pkgMain = pkg.main || '';
+          }
+        } catch (err) {}
+
+        if (pkgScripts.start) {
+          nodeCmd = pm === 'yarn' ? 'yarn start' : (pm === 'pnpm' ? 'pnpm start' : 'npm start');
+        } else if (pkgScripts.dev) {
+          nodeCmd = pm === 'yarn' ? 'yarn dev' : (pm === 'pnpm' ? 'pnpm dev' : 'npm run dev');
+        } else if (pkgMain && await fs.pathExists(path.join(repoPath, pkgMain))) {
+          nodeCmd = `node ${pkgMain}`;
+        } else if (await fs.pathExists(path.join(repoPath, 'index.js'))) {
+          nodeCmd = 'node index.js';
+        } else if (await fs.pathExists(path.join(repoPath, 'server.js'))) {
+          nodeCmd = 'node server.js';
+        } else if (await fs.pathExists(path.join(repoPath, 'app.js'))) {
+          nodeCmd = 'node app.js';
+        } else {
+          nodeCmd = 'npm start';
+        }
+      }
+
+      const nodeCmdDirective = formatDockerCmd(nodeCmd);
+
       dockerfileContent = `FROM node:22
 
 WORKDIR /app
@@ -80,7 +153,7 @@ COPY . .
 
 EXPOSE ${port}
 
-${cmdDirective}
+${nodeCmdDirective}
 `;
       break;
     }
@@ -89,6 +162,22 @@ ${cmdDirective}
       const hasRequirements = await fs.pathExists(path.join(repoPath, 'requirements.txt'));
       const hasPyproject = await fs.pathExists(path.join(repoPath, 'pyproject.toml'));
       const hasSetupPy = await fs.pathExists(path.join(repoPath, 'setup.py'));
+
+      // Determine smart runtime CMD for Python application
+      let pyCmd = command;
+      if (!pyCmd) {
+        if (await fs.pathExists(path.join(repoPath, 'app.py'))) {
+          pyCmd = 'python app.py';
+        } else if (await fs.pathExists(path.join(repoPath, 'main.py'))) {
+          pyCmd = 'python main.py';
+        } else if (await fs.pathExists(path.join(repoPath, 'server.py'))) {
+          pyCmd = 'python server.py';
+        } else {
+          pyCmd = 'python app.py';
+        }
+      }
+
+      const pyCmdDirective = formatDockerCmd(pyCmd);
 
       if (hasRequirements) {
         dockerfileContent = `FROM python:3.12
@@ -103,7 +192,7 @@ COPY . .
 
 EXPOSE ${port}
 
-${cmdDirective}
+${pyCmdDirective}
 `;
       } else if (hasPyproject || hasSetupPy) {
         dockerfileContent = `FROM python:3.12
@@ -116,7 +205,7 @@ RUN pip install --no-cache-dir .
 
 EXPOSE ${port}
 
-${cmdDirective}
+${pyCmdDirective}
 `;
       } else {
         // Standard Python application without external dependency file (e.g. server.py, app.py)
@@ -128,13 +217,15 @@ COPY . .
 
 EXPOSE ${port}
 
-${cmdDirective}
+${pyCmdDirective}
 `;
       }
       break;
     }
 
     case 'go': {
+      let goCmd = command ? formatDockerCmd(command) : 'CMD ["./app"]';
+
       dockerfileContent = `FROM golang:1.24 AS builder
 
 WORKDIR /app
@@ -155,7 +246,7 @@ COPY --from=builder /app/app .
 
 EXPOSE ${port}
 
-${cmdDirective}
+${goCmd}
 `;
       break;
     }

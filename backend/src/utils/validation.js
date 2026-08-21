@@ -32,12 +32,8 @@ function validateBuildInput(data) {
     }
   }
 
-  // 2. Validate command (Required ONLY when auto-generating Dockerfile for standard backend apps)
-  if (!isExistingDockerfileMode && !isStaticWebMode) {
-    if (!command || typeof command !== 'string' || command.trim() === '') {
-      errors.push('Run command is required when auto-generating a Dockerfile for application servers.');
-    }
-  }
+  // 2. Validate command (Optional: if empty, dockerfileGenerator automatically detects start script / entrypoint)
+  // No strict requirement for command to be non-empty
 
   // 3. Validate App Port (internal container port)
   const targetAppPort = isStaticWebMode ? 80 : (appPort !== undefined ? appPort : (port !== undefined ? port : 80));

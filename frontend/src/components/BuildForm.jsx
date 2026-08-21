@@ -61,10 +61,7 @@ export default function BuildForm({ onSubmit, isLoading }) {
       newErrors.repoUrl = 'Please enter a valid GitHub repository URL (e.g. https://github.com/user/my-app)';
     }
 
-    // Run Command validation (Only required in 'auto' mode)
-    if (buildMode === 'auto' && !formData.command.trim()) {
-      newErrors.command = 'Run command is required when auto-generating a Dockerfile for application servers.';
-    }
+    // Run Command (Optional in 'auto' mode)
 
     // App Port validation (Only in 'auto' and 'existing' modes)
     if (buildMode !== 'static') {
@@ -171,19 +168,19 @@ export default function BuildForm({ onSubmit, isLoading }) {
           {errors.repoUrl && <span className="error-hint">{errors.repoUrl}</span>}
         </div>
 
-        {/* Field 2: Run Command (Hidden in Static Website and Existing Dockerfile modes) */}
+        {/* Field 2: Run Command (Optional in Auto Backend mode, hidden in Static/Existing modes) */}
         {buildMode === 'auto' && (
           <div className="form-group">
             <label htmlFor="command" className="form-label">
               Run Command
-              <span className="label-hint">Execution command</span>
+              <span className="label-hint">Optional (auto-detected e.g. "npm start", "node server.js", "python app.py" if left blank)</span>
             </label>
             <input
               id="command"
               name="command"
               type="text"
               className={`form-input ${errors.command ? 'input-error' : ''}`}
-              placeholder="npm run dev"
+              placeholder="npm start or node server.js (Optional)"
               value={formData.command}
               onChange={handleChange}
               disabled={isLoading}
