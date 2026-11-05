@@ -1,0 +1,22 @@
+[
+  {
+    "id": "img_1793905440817_36w46",
+    "createdAt": "2026-11-05T19:04:00.818Z",
+    "imageName": "node-app-local-hosting",
+    "tag": "latest",
+    "repoUrl": "https://github.com/Ismail-dcode/Node-app-Local-Hosting",
+    "projectType": "Existing Dockerfile",
+    "details": {
+      "message": "Existing Dockerfile specified by user."
+    },
+    "appPort": 3000,
+    "dockerfileContent": "FROM node:20-alpine\r\n\r\nWORKDIR /app\r\n\r\nCOPY package*.json ./\r\nRUN npm install --omit=dev\r\n\r\nCOPY . .\r\n\r\nENV PORT=8080\r\nEXPOSE 8080\r\n\r\nCMD [\"npm\", \"start\"]\r\n",
+    "logs": "#0 building with \"desktop-linux\" instance using docker driver\n\n#1 [internal] load build definition from Dockerfile\n#1 transferring dockerfile: 195B 0.0s done\n#1 DONE 0.1s\n\n#2 [internal] load metadata for docker.io/library/node:20-alpine\n#2 ...\n\n#3 [auth] library/node:pull token for registry-1.docker.io\n#3 DONE 0.0s\n\n#2 [internal] load metadata for docker.io/library/node:20-alpine\n#2 DONE 2.8s\n\n#4 [internal] load .dockerignore\n#4 transferring context: 99B 0.0s done\n#4 DONE 0.0s\n\n#5 [1/5] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293\n#5 resolve docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 0.0s done\n#5 DONE 0.0s\n\n#6 [internal] load build context\n#6 transferring context: 122.83kB 0.1s done\n#6 DONE 0.1s\n\n#7 [3/5] COPY package*.json ./\n#7 CACHED\n\n#8 [4/5] RUN npm install --omit=dev\n#8 CACHED\n\n#9 [2/5] WORKDIR /app\n#9 CACHED\n\n#10 [5/5] COPY . .\n#10 CACHED\n\n#11 exporting to image\n#11 exporting layers done\n#11 exporting manifest sha256:ae65fa3dbae66dede1e8b697b4cbdd29c7f9b4f662cd9acf714c2f65f962834b done\n#11 exporting config sha256:e6a071c46eb81a50e893cd53f0e94b7896aece95f6f85dbdc069e5be084547b3 done\n#11 exporting attestation manifest sha256:b30cc698ef1df0258fa165ce2ad49b0d25bb607e0a552bad9bac997d56d9816b 0.0s done\n#11 exporting manifest list sha256:9271849995f9855510af5339081043b2f32758777580742148539d3b86f26a47 0.0s done\n#11 naming to docker.io/library/node-app-local-hosting:latest done\n#11 unpacking to docker.io/library/node-app-local-hosting:latest 0.1s done\n#11 DONE 0.2s\n\nView build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/fshwh1d4mhhodg8zyafb4iyt6",
+    "ecrImageUri": "429877856333.dkr.ecr.us-east-1.amazonaws.com/apps:deploy-img_1793905440817_36w46",
+    "ecrTag": "deploy-img_1793905440817_36w46",
+    "ecrRegistry": "429877856333.dkr.ecr.us-east-1.amazonaws.com",
+    "ecrStatus": "pushed",
+    "ecrPushedAt": "2026-11-05T19:07:56.631Z",
+    "updatedAt": "2026-11-05T19:07:56.633Z"
+  }
+]

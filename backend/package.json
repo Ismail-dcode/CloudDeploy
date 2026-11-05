@@ -1,0 +1,22 @@
+{
+  "name": "clouddeploy-backend",
+  "version": "1.0.0",
+  "description": "CloudDeploy Container Build & Deployment Engine",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-ec2": "^3.1150.0",
+    "@aws-sdk/client-ecs": "^3.1150.0",
+    "@aws-sdk/client-iam": "^3.1160.0",
+    "@aws-sdk/client-ssm": "^3.1160.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "fs-extra": "^11.2.0",
+    "uuid": "^9.0.1"
+  }
+}
